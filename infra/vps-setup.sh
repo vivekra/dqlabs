@@ -7,9 +7,17 @@ INGRESS_DOMAIN=${INGRESS_DOMAIN:-"127.0.0.1.nip.io"}
 echo "Setting up VPS for DigitalQ Labs..."
 echo "INGRESS_DOMAIN is set to $INGRESS_DOMAIN"
 
-# Update and install dependencies
+# Update and install basic dependencies
 sudo apt-get update
-sudo apt-get install -y docker.io docker-buildx-plugin docker-compose-plugin curl jq
+sudo apt-get install -y curl jq
+
+# Install Docker if not already installed
+if ! command -v docker &> /dev/null; then
+    echo "Installing Docker..."
+    curl -fsSL https://get.docker.com | sh
+else
+    echo "Docker is already installed."
+fi
 
 # Create the shared external network for modular docker-compose files
 echo "Creating dqlabs_network..."
