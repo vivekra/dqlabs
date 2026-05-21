@@ -12,7 +12,7 @@ services:
 
   orchestrator:
     build:
-      context: ../apps/orchestrator
+      context: ./apps/orchestrator
       dockerfile: Dockerfile
     container_name: dqlabs_orchestrator
     restart: always
@@ -32,7 +32,7 @@ services:
 
   ai_gateway:
     build:
-      context: ../apps/ai-gateway
+      context: ./apps/ai-gateway
       dockerfile: Dockerfile
     container_name: dqlabs_ai_gateway
     restart: always
@@ -45,7 +45,7 @@ services:
 
   celery_worker:
     build:
-      context: ../apps/orchestrator
+      context: ./apps/orchestrator
       dockerfile: Dockerfile
     container_name: dqlabs_celery_worker
     restart: always
