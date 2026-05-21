@@ -9,7 +9,8 @@ echo "INGRESS_DOMAIN is set to $INGRESS_DOMAIN"
 
 # Update and install dependencies
 sudo apt-get update
-sudo apt-get install -y docker.io docker-buildx-plugin docker-compose-plugin curl jq
+sudo apt-get install -y docker-ce docker-ce-cli docker-buildx-plugin docker-compose-plugin curl jq
+
 
 # Install K3s (disabling default traefik to install it via helm)
 echo "Installing K3s..."
