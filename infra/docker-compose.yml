@@ -46,7 +46,7 @@ services:
     image: ghcr.io/paymenter/paymenter:latest
     container_name: paymenter-cron
     restart: always
-    entrypoint: cron -f
+    entrypoint: php /app/artisan schedule:work
     environment:
       - DB_CONNECTION=mysql
       - DB_HOST=paymenter-db
