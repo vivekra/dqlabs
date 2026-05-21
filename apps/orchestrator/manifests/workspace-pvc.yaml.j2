@@ -1,0 +1,17 @@
+{# DigitalQ Labs — Workspace PVC Template #}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-ws-{{ workspace_id[:8] }}
+  namespace: {{ namespace }}
+  labels:
+    app: digitalq-workspace
+    workspace-id: "{{ workspace_id }}"
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ storage_class | default('longhorn') }}
+  resources:
+    requests:
+      storage: {{ storage_gb }}Gi

@@ -1,0 +1,24 @@
+{# DigitalQ Labs — Workspace ClusterIP Service Template #}
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-ws-{{ workspace_id[:8] }}
+  namespace: {{ namespace }}
+  labels:
+    app: digitalq-workspace
+    workspace-id: "{{ workspace_id }}"
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+spec:
+  type: ClusterIP
+  selector:
+    app: digitalq-workspace
+    workspace-id: "{{ workspace_id }}"
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: ws
+      port: 3000
+      targetPort: 3000
+      protocol: TCP

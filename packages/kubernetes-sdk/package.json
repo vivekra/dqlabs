@@ -1,0 +1,20 @@
+{
+  "name": "@digitalq/kubernetes-sdk",
+  "version": "1.0.0",
+  "description": "Custom Kubernetes SDK and templates for DigitalQ Labs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.20.0",
+    "@digitalq/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

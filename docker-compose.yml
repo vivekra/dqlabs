@@ -1,0 +1,221 @@
+version: '3.8'
+
+services:
+  # 1. Primary PostgreSQL Database (Shared between platform DB, Supabase Auth, and pgvector RAG)
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: digitalq-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecretpassword123
+      POSTGRES_DB: digitalq_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d digitalq_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis (Cache, WebSocket Session Sync, and Celery Queue Broker)
+  redis:
+    image: redis:7.2-alpine
+    container_name: digitalq-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # 3. MailHog (SMTP Server mock for testing user signups, invoice notifications, billing emails)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: digitalq-mailhog
+    ports:
+      - "1025:1025" # SMTP Port
+      - "8025:8025" # Web UI
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+
+  # 4. MinIO (High-performance S3 mock for storage and Kubernetes state snapshots)
+  minio:
+    image: minio/minio:latest
+    container_name: digitalq-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadminpassword123
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web Console
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 5. Ollama (Lightweight AI Inference Engine hosting Llama-3 / DeepSeek local models)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: digitalq-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Fallback to CPU execution if NVIDIA runtime driver is not available locally
+    restart: always
+
+  # 6. Paymenter (Local Billing Dashboard & Subscription Manager)
+  paymenter:
+    image: ghcr.io/paymenter/paymenter:latest
+    container_name: digitalq-paymenter
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: digitalq_dev
+      DB_USERNAME: postgres
+      DB_PASSWORD: supersecretpassword123
+      APP_URL: http://localhost:8000
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+    ports:
+      - "8000:80"
+    volumes:
+      - paymenterdata:/var/www/paymenter/storage
+
+  # 7. Supabase Auth (GoTrue Go-based auth handler)
+  supabase-auth:
+    image: supabase/gotrue:v2.143.0
+    container_name: digitalq-supabase-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:supersecretpassword123@postgres:5432/digitalq_dev?sslmode=disable
+      GOTRUE_JWT_SECRET: supersecretjwtsecretstring1234567890
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_SMTP_HOST: mailhog
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_USER: ""
+      GOTRUE_SMTP_PASS: ""
+      GOTRUE_SMTP_SENDER_NAME: "DigitalQ Labs Auth"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    ports:
+      - "9999:9999"
+
+  # 8. FastAPI API Gateway
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: digitalq-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:supersecretpassword123@postgres:5432/digitalq_dev
+      REDIS_URL: redis://redis:6379/0
+      SUPABASE_JWT_SECRET: supersecretjwtsecretstring1234567890
+      PAYMENTER_API_KEY: dev_paymenter_api_key_abc123
+      PAYMENTER_URL: http://paymenter:80
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+
+  # 9. Next.js Web Dashboard
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: digitalq-web
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:9999
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dev_supabase_anon_key_string
+    ports:
+      - "3000:3000"
+
+  # 10. AI Gateway Service
+  ai-gateway:
+    build:
+      context: .
+      dockerfile: apps/ai-gateway/Dockerfile
+    container_name: digitalq-ai-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:supersecretpassword123@postgres:5432/digitalq_dev
+      OLLAMA_URL: http://ollama:11434
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-mock_key_for_dev}
+      AI_MODE: hybrid
+    ports:
+      - "8001:8001"
+
+  # 11. Orchestrator Celery Service
+  orchestrator:
+    build:
+      context: .
+      dockerfile: apps/orchestrator/Dockerfile
+    container_name: digitalq-orchestrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:supersecretpassword123@postgres:5432/digitalq_dev
+      REDIS_URL: redis://redis:6379/0
+      ENVIRONMENT: development
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Allows managing nested k3d/containers locally
+      - ~/.kube:/root/.kube:ro # Mount kubeconfig for Kubernetes cluster interaction
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  paymenterdata:
+    driver: local
+  miniodata:
+    driver: local
+  ollamadata:
+    driver: local

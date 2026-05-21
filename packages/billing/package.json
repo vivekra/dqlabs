@@ -1,0 +1,20 @@
+{
+  "name": "@digitalq/billing",
+  "version": "1.0.0",
+  "description": "Paymenter billing client and usage metering tools for DigitalQ Labs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "@digitalq/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

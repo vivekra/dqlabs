@@ -1,0 +1,156 @@
+# ==============================================================================
+# Traefik Configuration — Middleware, TLS & Health Check Route
+# ==============================================================================
+# Custom Traefik resources deployed into the platform control namespace.
+# These are referenced by workspace IngressRoutes created dynamically by the
+# orchestrator.
+#
+# NOTE: The Traefik Helm chart installs the CRDs.  These manifests only define
+# instances of those CRDs.
+# ==============================================================================
+
+---
+# ── Middleware: Workspace Access Headers ──────────────────────────────────────
+# Injected into every workspace IngressRoute by the orchestrator.
+# Adds / overrides headers so backend services always know which workspace
+# originated the request.  This is a security boundary — the proxy sets these
+# headers authoritatively; client-supplied values are stripped.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: workspace-headers
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: traefik
+spec:
+  headers:
+    # ── Security headers ─────────────────────────────────────────────────────
+    customRequestHeaders:
+      # The orchestrator populates these per-route via IngressRoute annotations.
+      # Default values here act as a safe fallback.
+      X-Workspace-Id: ""
+      X-Tenant-Id: ""
+    customResponseHeaders:
+      # Prevent content sniffing
+      X-Content-Type-Options: "nosniff"
+      # Deny framing by default — workspace UIs opt-in via their own headers
+      X-Frame-Options: "DENY"
+      # Referrer policy
+      Referrer-Policy: "strict-origin-when-cross-origin"
+      # Basic CSP — workspace IngressRoutes can override
+      Content-Security-Policy: "default-src 'self'"
+    # Strip potentially spoofed upstream headers
+    sslRedirect: false
+    browserXssFilter: true
+    contentTypeNosniff: true
+    forceSTSHeader: true
+    stsSeconds: 315360000
+    stsIncludeSubdomains: true
+
+---
+# ── Middleware: Rate Limiting ─────────────────────────────────────────────────
+# Global rate limit to protect the cluster from runaway or abusive requests.
+# Per-workspace rate limits are enforced separately via dynamic middleware.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: global-rate-limit
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: traefik
+spec:
+  rateLimit:
+    average: 100
+    burst: 200
+    period: 1s
+
+---
+# ── Middleware: Compression ───────────────────────────────────────────────────
+# Enable gzip/brotli compression for workspace traffic to reduce bandwidth.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compress
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: traefik
+spec:
+  compress:
+    excludedContentTypes:
+      - application/grpc
+
+---
+# ── TLS Options ──────────────────────────────────────────────────────────────
+# TLS 1.2+ with modern cipher suites.  Used as the default TLS option for all
+# IngressRoutes unless overridden.
+apiVersion: traefik.io/v1alpha1
+kind: TLSOption
+metadata:
+  name: default
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: traefik
+spec:
+  minVersion: VersionTLS12
+  maxVersion: VersionTLS13
+  cipherSuites:
+    - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+    - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+    - TLS_AES_256_GCM_SHA384
+    - TLS_CHACHA20_POLY1305_SHA256
+  sniStrict: false
+
+---
+# ── Default IngressRoute: Health Check ────────────────────────────────────────
+# A simple health-check route at /healthz that returns 200 OK.
+# Used by load balancers and monitoring to verify Traefik is operational.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: health-check
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: traefik
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: PathPrefix(`/healthz`)
+      kind: Rule
+      priority: 1
+      services:
+        - name: ping@internal
+          kind: TraefikService
+
+---
+# ── Default IngressRoute: HTTPS Health Check ─────────────────────────────────
+# Same health check but on the websecure entrypoint.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: health-check-tls
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: traefik
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: PathPrefix(`/healthz`)
+      kind: Rule
+      priority: 1
+      services:
+        - name: ping@internal
+          kind: TraefikService
+  tls:
+    options:
+      name: default
+      namespace: digitalq-system

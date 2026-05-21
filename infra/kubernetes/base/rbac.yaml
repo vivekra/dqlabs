@@ -1,0 +1,115 @@
+# ==============================================================================
+# RBAC — Orchestrator Service Account & Permissions
+# ==============================================================================
+# The orchestrator needs cluster-wide permissions because it dynamically creates
+# and manages per-tenant namespaces, networking, and storage.
+#
+# Principle of least privilege: we grant only the specific verbs and resources
+# the orchestrator actually uses.  If a new resource type is needed, add it
+# explicitly rather than using wildcards.
+# ==============================================================================
+
+---
+# ── ServiceAccount ────────────────────────────────────────────────────────────
+# The orchestrator pod runs as this identity.  Token auto-mounting is handled
+# by the pod spec (projected volume), not here.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: digitalq-orchestrator
+  namespace: digitalq-system
+  labels:
+    app.kubernetes.io/name: digitalq-orchestrator
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: orchestrator
+
+---
+# ── ClusterRole ───────────────────────────────────────────────────────────────
+# Cluster-scoped because the orchestrator creates namespaces and resources
+# across many namespaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: digitalq-orchestrator
+  labels:
+    app.kubernetes.io/name: digitalq-orchestrator
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: orchestrator
+rules:
+  # ── Namespace lifecycle ─────────────────────────────────────────────────────
+  # Create, read, update, and delete tenant workspace namespaces.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ── Core workload resources ─────────────────────────────────────────────────
+  # Manage pods, deployments, and services inside tenant namespaces.
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ── Networking ──────────────────────────────────────────────────────────────
+  # Create Ingress / IngressRoute resources for workspace routing and enforce
+  # tenant isolation via NetworkPolicies.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Traefik CRD resources for fine-grained routing and middleware.
+  - apiGroups: ["traefik.io", "traefik.containo.us"]
+    resources: ["ingressroutes", "middlewares", "tlsstores", "tlsoptions"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ── Storage ─────────────────────────────────────────────────────────────────
+  # Provision and manage persistent volumes for workspace data.
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims", "persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ── Volume Snapshots ────────────────────────────────────────────────────────
+  # Create and restore snapshots for workspace backup / clone.
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots", "volumesnapshotcontents", "volumesnapshotclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ── Resource Quotas ─────────────────────────────────────────────────────────
+  # Enforce per-tenant resource limits (CPU, memory, storage).
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ── Events (read-only) ─────────────────────────────────────────────────────
+  # Monitor events for health / status reporting — no mutation needed.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+
+  # ── Node info (read-only) ──────────────────────────────────────────────────
+  # Read node labels / capacity for scheduling decisions.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ── ClusterRoleBinding ────────────────────────────────────────────────────────
+# Bind the ClusterRole to the orchestrator ServiceAccount.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: digitalq-orchestrator
+  labels:
+    app.kubernetes.io/name: digitalq-orchestrator
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/component: orchestrator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: digitalq-orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: digitalq-orchestrator
+    namespace: digitalq-system

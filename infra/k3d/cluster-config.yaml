@@ -1,0 +1,79 @@
+# ==============================================================================
+# K3d Cluster Configuration — DigitalQ Labs Local Development
+# ==============================================================================
+# This configuration creates a lightweight K3s cluster inside Docker containers
+# for local development. It mirrors the production topology (1 control-plane,
+# 2 workers) while keeping resource usage low.
+#
+# Key design decisions:
+#   - Ports 80/443 are mapped to the host so Traefik Ingress works seamlessly.
+#   - A local Docker registry at localhost:5111 avoids pushes to remote
+#     registries during development, speeding up the inner dev loop.
+#   - K3s's bundled Traefik is disabled because we install a specific version
+#     via Helm with custom middleware (workspace headers, TLS).
+#   - A host volume mount provides durable storage that survives cluster
+#     recreation, useful for Longhorn PVs during development.
+# ==============================================================================
+
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: digitalq-dev
+
+# -- Cluster Topology ---------------------------------------------------------
+servers: 1
+agents: 2
+
+# -- Port Mappings ------------------------------------------------------------
+# Expose HTTP/HTTPS on the host via the k3d-managed load balancer so that
+# Traefik IngressRoutes are reachable at localhost:80 / localhost:443.
+ports:
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 443:443
+    nodeFilters:
+      - loadbalancer
+
+# -- Local Docker Registry ----------------------------------------------------
+# A registry sidecar container is created at localhost:5111.  All cluster nodes
+# are pre-configured to pull from it, eliminating the need for imagePullSecrets
+# or remote pushes during development.
+registries:
+  create:
+    name: digitalq-registry
+    host: "0.0.0.0"
+    hostPort: "5111"
+
+# -- Volume Mounts ------------------------------------------------------------
+# Mount a host directory into every node so Longhorn (or any hostPath
+# provisioner) can persist data across cluster restarts.  The directory is
+# created automatically by k3d if it does not exist.
+volumes:
+  - volume: digitalq-dev-storage:/var/lib/rancher/k3s/storage
+    nodeFilters:
+      - all
+
+# -- K3s Server Arguments -----------------------------------------------------
+# Disable the bundled Traefik deployment — we install our own version with
+# custom CRD support, middleware, and TLS configuration.
+# Disable servicelb (Klipper) so it does not conflict with our load balancer.
+options:
+  k3d:
+    wait: true
+    timeout: "120s"
+  k3s:
+    extraArgs:
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*
+      - arg: "--disable=servicelb"
+        nodeFilters:
+          - server:*
+
+# -- Node Labels ---------------------------------------------------------------
+# Labels help schedule workloads to the correct node role.  The orchestrator
+# uses these labels when placing tenant workspace pods onto worker nodes.
+kubeAPI:
+  hostIP: "0.0.0.0"
+  hostPort: "6443"

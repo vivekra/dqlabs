@@ -1,0 +1,28 @@
+{# DigitalQ Labs — Traefik IngressRoute Template #}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: ir-ws-{{ workspace_id[:8] }}
+  namespace: {{ namespace }}
+  labels:
+    app: digitalq-workspace
+    workspace-id: "{{ workspace_id }}"
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`ws-{{ workspace_id[:8] }}.{{ namespace }}.{{ domain_suffix }}`)
+      kind: Rule
+      services:
+        - name: svc-ws-{{ workspace_id[:8] }}
+          port: 8080
+    - match: Host(`ws-{{ workspace_id[:8] }}.{{ namespace }}.{{ domain_suffix }}`) && PathPrefix(`/terminal`)
+      kind: Rule
+      services:
+        - name: svc-ws-{{ workspace_id[:8] }}
+          port: 3000
+  tls:
+    certResolver: letsencrypt
+    domains:
+      - main: "*.{{ namespace }}.{{ domain_suffix }}"

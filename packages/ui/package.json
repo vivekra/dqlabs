@@ -1,0 +1,16 @@
+{
+  "name": "@digitalq/ui",
+  "version": "1.0.0",
+  "description": "Tailwind dynamic UI theme configuration library for DigitalQ Labs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "tailwindcss": "^3.4.1"
+  }
+}

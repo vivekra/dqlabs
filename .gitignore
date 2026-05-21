@@ -1,0 +1,48 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+web_modules/
+
+# PNPM
+pnpm-lock.yaml
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+.turbo/
+
+# Python caching & environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# IDE files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Suppressed Local Development Volume caches
+supabase/.temp/
+supabase/functions/.import_map.json
+docker-compose/pgdata/
+docker-compose/redisdata/
+docker-compose/paymenterdata/
+docker-compose/miniodata/

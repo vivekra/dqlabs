@@ -1,0 +1,23 @@
+# ==============================================================================
+# Namespace: digitalq-system
+# ==============================================================================
+# The platform control-plane namespace.  All orchestrator components, shared
+# platform services, and cross-cutting resources (RBAC, network policies) live
+# here.
+#
+# Tenant workspaces are provisioned in their own namespaces (e.g.
+# "digitalq-ws-<id>") by the orchestrator — they are NOT created here.
+# ==============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: digitalq-system
+  labels:
+    # Identify this namespace as part of the DigitalQ platform
+    app.kubernetes.io/part-of: digitalq-labs
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+    # Pod Security Standards — enforce restricted baseline for the control plane
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

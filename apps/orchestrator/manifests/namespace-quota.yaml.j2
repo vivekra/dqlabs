@@ -1,0 +1,15 @@
+{# DigitalQ Labs — Namespace ResourceQuota Template #}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ namespace }}-quota
+  namespace: {{ namespace }}
+  labels:
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+    digitalq.io/tenant-id: "{{ tenant_id }}"
+spec:
+  hard:
+    limits.cpu: "{{ max_cpus }}"
+    limits.memory: "{{ max_ram_mb }}Mi"
+    requests.storage: "{{ max_storage_gb }}Gi"
+    pods: "{{ max_pods }}"

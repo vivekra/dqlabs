@@ -1,0 +1,44 @@
+{# DigitalQ Labs — Default-Deny NetworkPolicy Template #}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ namespace }}-default-deny
+  namespace: {{ namespace }}
+  labels:
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+    digitalq.io/tenant-id: "{{ tenant_id }}"
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from Traefik ingress controller namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+    # Allow intra-namespace traffic (workspace containers communicating)
+    - from:
+        - podSelector: {}
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS egress for pulling images, external APIs
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow HTTP egress for package managers
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80

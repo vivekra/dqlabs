@@ -1,0 +1,37 @@
+# ==============================================================================
+# Kustomization — Base Resources
+# ==============================================================================
+# Aggregates all base Kubernetes manifests for the DigitalQ Labs platform.
+# Apply with:   kubectl apply -k infra/kubernetes/base/
+#
+# Resource order matters: the namespace must exist before resources that
+# reference it, so it is listed first.  Kustomize respects declaration order
+# for creation but handles dependencies automatically for deletion.
+# ==============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: digitalq-base
+
+# ── Common labels applied to every resource ───────────────────────────────────
+# These labels enable bulk queries like:
+#   kubectl get all -l app.kubernetes.io/part-of=digitalq-labs
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/part-of: digitalq-labs
+      app.kubernetes.io/managed-by: kustomize
+      environment: development
+
+# ── Resources in dependency order ─────────────────────────────────────────────
+resources:
+  # 1. Namespace must be created before any namespaced resources
+  - namespace.yaml
+  # 2. RBAC — ServiceAccount, ClusterRole, ClusterRoleBinding
+  - rbac.yaml
+  # 3. Storage infrastructure
+  # (Using local-path which is built-in)
+  # 4. Networking / Traefik configuration
+  - traefik-config.yaml

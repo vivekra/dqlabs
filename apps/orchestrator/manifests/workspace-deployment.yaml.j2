@@ -1,0 +1,74 @@
+{# DigitalQ Labs — Workspace Deployment Template #}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ws-{{ workspace_id[:8] }}
+  namespace: {{ namespace }}
+  labels:
+    app: digitalq-workspace
+    workspace-id: "{{ workspace_id }}"
+    tenant-id: "{{ tenant_id }}"
+    app.kubernetes.io/managed-by: digitalq-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: digitalq-workspace
+      workspace-id: "{{ workspace_id }}"
+  template:
+    metadata:
+      labels:
+        app: digitalq-workspace
+        workspace-id: "{{ workspace_id }}"
+        tenant-id: "{{ tenant_id }}"
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: code-server
+          image: {{ code_server_image | default('digitalqlabs/code-server:v1.0.0') }}
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            limits:
+              cpu: "{{ cpu_limit }}"
+              memory: "{{ memory_limit }}"
+            requests:
+              cpu: "{{ cpu_request | default('250m') }}"
+              memory: "{{ memory_request | default('512Mi') }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: workspace-storage
+              mountPath: /home/coder/project
+          env:
+            - name: WORKSPACE_ID
+              value: "{{ workspace_id }}"
+            - name: TENANT_ID
+              value: "{{ tenant_id }}"
+        - name: terminal-agent
+          image: {{ terminal_agent_image | default('digitalqlabs/terminal-agent:v1.0.0') }}
+          ports:
+            - containerPort: 3000
+              name: ws
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: workspace-storage
+          persistentVolumeClaim:
+            claimName: pvc-ws-{{ workspace_id[:8] }}
