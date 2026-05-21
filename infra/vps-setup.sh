@@ -35,10 +35,10 @@ rm get_helm.sh
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 # Install Traefik via Helm
-echo "Installing Traefik..."
-helm repo add traefik https://helm.traefik.io/traefik
+echo "Installing/Upgrading Traefik..."
+helm repo add traefik https://helm.traefik.io/traefik || true
 helm repo update
-helm install traefik traefik/traefik -n kube-system
+helm upgrade --install traefik traefik/traefik -n kube-system
 
 echo "VPS setup complete!"
 echo "Please configure your DNS to point $INGRESS_DOMAIN to this server's IP address."
