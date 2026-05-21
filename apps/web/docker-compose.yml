@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dqlabs_web
+    restart: always
+    env_file:
+      - .env.local
+    ports:
+      - "3000:3000"
+    networks:
+      - dqlabs_network
+
+networks:
+  dqlabs_network:
+    external: true

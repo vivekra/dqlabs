@@ -25,16 +25,21 @@ if (-not (Ask-YesNo $promptMessage)) {
 
 # 1. Docker-Compose services
 if (-not $SkipDockerCompose) {
-    if (Test-Path "docker-compose.prod.yml") {
-        Write-Host "Stopping Docker-Compose services..." -ForegroundColor Green
-        docker-compose -f docker-compose.prod.yml down -v
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Docker-compose down failed, continuing..." -ForegroundColor Yellow
-        }
+    Write-Host "Stopping Docker-Compose services..." -ForegroundColor Green
+    
+    if (Test-Path "..\apps\web\docker-compose.yml") {
+        docker-compose -f ..\apps\web\docker-compose.yml down -v
     }
-    else {
-        Write-Host "docker-compose.prod.yml not found - skipping Docker-Compose cleanup." -ForegroundColor Yellow
+    
+    if (Test-Path "..\apps\orchestrator\docker-compose.yml") {
+        docker-compose -f ..\apps\orchestrator\docker-compose.yml down -v
     }
+    
+    if (Test-Path "docker-compose.yml") {
+        docker-compose -f docker-compose.yml down -v
+    }
+    
+    docker network rm dqlabs_network 2>$null | Out-Null
 }
 
 # 2. Remove all Helm releases

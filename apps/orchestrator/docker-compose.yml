@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dqlabs_orchestrator
+    restart: always
+    env_file:
+      - .env.prod
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KUBECONFIG=/root/.kube/config
+    ports:
+      - "8000:8000"
+    volumes:
+      - /etc/rancher/k3s/k3s.yaml:/root/.kube/config:ro
+    networks:
+      - dqlabs_network
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dqlabs_celery_worker
+    restart: always
+    command: celery -A core.tasks worker --loglevel=info
+    env_file:
+      - .env.prod
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KUBECONFIG=/root/.kube/config
+    volumes:
+      - /etc/rancher/k3s/k3s.yaml:/root/.kube/config:ro
+    depends_on:
+      - orchestrator
+    networks:
+      - dqlabs_network
+
+  ai_gateway:
+    build:
+      context: ../ai-gateway
+      dockerfile: Dockerfile
+    container_name: dqlabs_ai_gateway
+    restart: always
+    env_file:
+      - .env.prod
+    ports:
+      - "8001:8001"
+    networks:
+      - dqlabs_network
+
+networks:
+  dqlabs_network:
+    external: true

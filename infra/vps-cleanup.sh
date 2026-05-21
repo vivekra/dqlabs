@@ -15,11 +15,24 @@ fi
 
 echo ""
 echo "1. Tearing down Docker Compose services..."
-if [ -f "docker-compose.prod.yml" ]; then
-    docker-compose -f docker-compose.prod.yml down -v || echo "Docker-compose down failed, continuing..."
-else
-    echo "No docker-compose.prod.yml found in current directory. Skipping."
+
+# Frontend
+if [ -f "../apps/web/docker-compose.yml" ]; then
+    docker-compose -f ../apps/web/docker-compose.yml down -v || true
 fi
+
+# Backend
+if [ -f "../apps/orchestrator/docker-compose.yml" ]; then
+    docker-compose -f ../apps/orchestrator/docker-compose.yml down -v || true
+fi
+
+# Infra
+if [ -f "docker-compose.yml" ]; then
+    docker-compose -f docker-compose.yml down -v || true
+fi
+
+# Network
+docker network rm dqlabs_network || true
 
 echo "2. Uninstalling K3s cluster and wiping data..."
 if [ -f "/usr/local/bin/k3s-uninstall.sh" ]; then

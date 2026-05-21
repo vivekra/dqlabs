@@ -97,6 +97,10 @@ else {
 
 Write-Success "All prerequisites satisfied."
 
+Write-Info "Creating docker network dqlabs_network..."
+docker network create dqlabs_network 2>$null | Out-Null
+Write-Success "Docker network dqlabs_network ready."
+
 # ==============================================================================
 # 2. Create K3d Cluster (idempotent)
 # ==============================================================================
