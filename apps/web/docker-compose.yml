@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   web:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/web/Dockerfile
     container_name: dqlabs_web
     restart: always
     env_file:

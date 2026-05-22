@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   orchestrator:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/orchestrator/Dockerfile
     container_name: dqlabs_orchestrator
     restart: always
     env_file:
@@ -21,11 +19,36 @@ services:
 
   celery_worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/orchestrator/Dockerfile
     container_name: dqlabs_celery_worker
     restart: always
-    command: celery -A core.tasks worker --loglevel=info
+    command: >
+      celery -A apps.orchestrator.celery_app:celery_app worker
+      --queues=default,provisioning,lifecycle,monitoring
+      --loglevel=info
+      --concurrency=4
+    env_file:
+      - .env.prod
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - KUBECONFIG=/root/.kube/config
+    volumes:
+      - /etc/rancher/k3s/k3s.yaml:/root/.kube/config:ro
+    depends_on:
+      - orchestrator
+    networks:
+      - dqlabs_network
+
+  celery_beat:
+    build:
+      context: ../..
+      dockerfile: apps/orchestrator/Dockerfile
+    container_name: dqlabs_celery_beat
+    restart: always
+    command: >
+      celery -A apps.orchestrator.celery_app:celery_app beat
+      --loglevel=info
     env_file:
       - .env.prod
     environment:
@@ -40,8 +63,8 @@ services:
 
   ai_gateway:
     build:
-      context: ../ai-gateway
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/ai-gateway/Dockerfile
     container_name: dqlabs_ai_gateway
     restart: always
     env_file:
