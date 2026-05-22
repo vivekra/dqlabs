@@ -1,6 +1,16 @@
 [build]
-  command = "npx pnpm build"
-  publish = ".next"
+  # 1. Step up two directories to reach the monorepo root
+  base = "../../"
+  
+  # 2. Tell Netlify where the build output lives relative to the root
+  publish = "apps/web/.next"
+  
+  # 3. Enable corepack, run workspace install, and build only the web package
+  command = "corepack enable && pnpm install && pnpm --filter @digitalq/web build"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  # 4. Prevents Netlify from running its automatic npm dependency runner
+  NPM_FLAGS = "--version"
