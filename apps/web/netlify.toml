@@ -1,6 +1,6 @@
 [build]
   # 1. Step up two directories to reach the monorepo root
-  base = "../../"
+  base = ""
   
   # 2. Tell Netlify where the build output lives relative to the root
   publish = "apps/web/.next"
